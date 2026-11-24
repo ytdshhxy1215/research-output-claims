@@ -1,0 +1,23 @@
+# Credentials and local settings
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Local runtimes and build products
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+node_modules/
+dist/
+
+# Local-only datasets, evidence and exports
+/data/private/
+/local/
+/exports/
+/db.sqlite3
