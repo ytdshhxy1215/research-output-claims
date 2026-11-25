@@ -4,6 +4,7 @@
 <section class="auth-card">
   <p class="eyebrow">工作台账户</p>
   <h1>登录</h1>
+  <p>登录后会显示当前账号可用的工作台。教师认领和院系、校级统计使用不同的角色权限。</p>
   <form method="post" class="stack">
     {% csrf_token %}
     {{ form.as_p }}

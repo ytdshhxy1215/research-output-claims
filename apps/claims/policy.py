@@ -1,9 +1,8 @@
 from enum import StrEnum
-from functools import cached_property
 
 from django.db.models import Q
 
-from apps.people.models import DepartmentReviewer, Researcher
+from apps.people.access import WorkspaceAccess
 
 from .models import ClaimCase
 
@@ -26,34 +25,8 @@ ACTION_STATES = {
 }
 
 
-class ClaimsAccess:
+class ClaimsAccess(WorkspaceAccess):
     """Current roles apply to the assigned department, not the applicant's current affiliation."""
-
-    def __init__(self, actor):
-        self.actor = actor
-        self.active = actor.is_authenticated and actor.is_active
-
-    @cached_property
-    def researcher(self):
-        if self.active:
-            return Researcher.objects.filter(user=self.actor).first()
-        return None
-
-    @property
-    def researcher_id(self):
-        return self.researcher.pk if self.researcher is not None else None
-
-    @cached_property
-    def school(self):
-        return self.active and self.actor.groups.filter(name="school-reviewers").exists()
-
-    @cached_property
-    def department_ids(self):
-        if not self.active:
-            return frozenset()
-        return frozenset(
-            DepartmentReviewer.objects.filter(user=self.actor).values_list("department_id", flat=True)
-        )
 
     def own_cases(self):
         return ClaimCase.objects.filter(researcher_id=self.researcher_id)

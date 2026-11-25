@@ -4,11 +4,21 @@
   <p class="eyebrow">科研成果 · 证据与归属</p>
   <h1>学术成果智能归集与认领系统</h1>
   <p>从论文和专利的增量归集，到教师认领、独立复核和可追溯统计。</p>
-  {% if user.is_authenticated %}<a class="button" href="{% url 'claims:index' %}">进入工作台</a>{% else %}<a class="button" href="{% url 'login' %}">登录工作台</a>{% endif %}
+  {% if not user.is_authenticated %}
+    <a class="button" href="{% url 'login' %}">登录工作台</a>
+  {% elif not workspace.role_labels %}
+    <p class="notice">当前账号尚未分配工作台角色。如需处理认领、审核或统计，请联系管理员。</p>
+  {% else %}
+    <div class="action-row">
+      {% if workspace.can_view_claims %}<a class="button" href="{% url 'claims:index' %}">{% if workspace.researcher_id %}进入认领工作台{% else %}进入审核工作台{% endif %}</a>{% endif %}
+      {% if workspace.can_view_reports %}<a class="button quiet" href="{% url 'reports:index' %}">查看成果统计</a>{% endif %}
+      {% if workspace.can_view_sync %}<a class="button quiet" href="{% url 'sync_operations' %}">查看同步运行</a>{% endif %}
+    </div>
+  {% endif %}
 </section>
 <section class="cards" aria-label="系统能力">
   <article><h2>发现成果</h2><p>从固定版本的模拟源同步论文和专利，保留源版本和署名。</p></article>
   <article><h2>确认归属</h2><p>按署名提交认领，审核和申诉留有独立决策依据。</p></article>
-  <article><h2>解释统计</h2><p>按成果事件和历史院系切换示例口径，核对明细与快照。</p></article>
+  <article><h2>解释统计</h2><p>授权审核人员可按成果事件和历史院系切换口径，核对明细与快照。</p></article>
 </section>
 {% endblock %}

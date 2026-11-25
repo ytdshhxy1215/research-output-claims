@@ -28,3 +28,18 @@ th,td { padding:.55rem; border-bottom:1px solid var(--border); text-align:left; 
 .report-bars { display:grid; gap:.65rem; margin:1rem 0; }
 .report-bars > div { display:grid; grid-template-columns:7rem minmax(0,18rem); align-items:center; }
 meter { width:min(12rem,100%); accent-color:var(--brand); }
+.skip-link { position:absolute; top:.5rem; left:.5rem; transform:translateY(-180%); padding:.5rem .75rem; background:#fff; z-index:1; }
+.skip-link:focus { transform:none; }
+.main-nav { gap:.4rem; }
+.main-nav a { padding:.35rem .56rem; border-radius:.45rem; text-decoration:none; }
+.main-nav a:hover { text-decoration:underline; }
+.main-nav [aria-current="page"] { color:#064b48; background:#dceeea; font-weight:700; }
+.session-tools,.action-row { display:flex; flex-wrap:wrap; align-items:center; gap:.65rem; }
+.session-tools form,.action-row form { margin:0; }
+.session-tools { font-size:.88rem; }
+.role-badges { display:flex; flex-wrap:wrap; align-items:center; gap:.35rem; }
+.role-badge { background:#e5efed; color:#254f4b; border:1px solid #cddfdb; border-radius:1rem; padding:.08rem .5rem; white-space:nowrap; }
+.compact { padding:.28rem .58rem; }
+.access-panel { max-width:47rem; border:1px solid var(--border); border-top:4px solid var(--brand); border-radius:.85rem; background:#fff; padding:clamp(1.2rem,4vw,2.5rem); }
+.notice { background:#edf5f3; color:#26433f; border-left:3px solid var(--brand); border-radius:.25rem; padding:.7rem .85rem; }
+.notice p { margin:.25rem 0; }

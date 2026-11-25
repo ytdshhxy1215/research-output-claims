@@ -12,7 +12,7 @@ docker compose up -d --no-build --wait --wait-timeout 120
 docker compose run --rm --no-deps migrate python manage.py seed_demo
 ```
 
-打开 `http://127.0.0.1:8000/`（或 `.env` 指定的 `WEB_PORT`）。演示用户共用你设置的 `DEMO_PASSWORD`：教师 `lin`、`chen`、`lin-other`，院系审核 `review-alpha`、`review-beta`，校级复核 `school-review`，同步监控 `source-ops`。同步由 Worker 经 HTTP 执行，账户初始化不会写入成果记录。
+打开 `http://127.0.0.1:8000/`（或 `.env` 指定的 `WEB_PORT`）。演示用户共用你设置的 `DEMO_PASSWORD`：教师 `lin`、`chen`、`lin-other`，院系审核 `review-alpha`、`review-beta`，校级复核 `school-review`，同步监控 `source-ops`。页面按角色显示入口：教师处理认领，院系审核员与校级复核员查看获授权的统计，运维查看同步。同步由 Worker 经 HTTP 执行，账户初始化不会写入成果记录。
 
 先以 `lin` 查看或查找 `10.5555/p1`，对第一署名提交认领；由 `review-beta` 初审驳回，`lin` 申诉后用 `school-review` 改判。以校级角色在成果统计选择 **2025 年 / 学院考核示例**：论文计入林岚发表时所在的甲院，不计入处理认领的乙院。也可以打开「跨年成果趋势」，按同一口径看近 1–10 年的计数，再进入对应年度明细。更多步骤、批次推进和停止方式见[演示脚本](docs/operations/demo.md)与[容器手册](docs/operations/containers.md)。
 

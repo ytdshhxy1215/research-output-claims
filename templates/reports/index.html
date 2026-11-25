@@ -16,6 +16,12 @@
 {% if report.department_id %}<p><a href="{{ full_scope_url }}">返回完整授权范围</a></p>{% endif %}
 <article>
   <h2>{{ report.scope_label }}去重成果：<span data-report-total>{{ report.count }}</span></h2>
+  {% if not report.snapshot_id and not report.count %}
+    <div class="notice" aria-label="实时统计为空的说明">
+      <p><strong>当前筛选下暂无可计入成果。</strong> 只有已核准且符合口径的署名才计数，年度按成果事件日而非认领日期。</p>
+      {% if demo_year_url %}<p><a href="{{ demo_year_url }}">查看 {{ demo_year }} 演示年度</a>（保留当前口径和范围；演示认领仍需先核准）。</p>{% endif %}
+    </div>
+  {% endif %}
   <p>按成果独立去重。成果可归属多个院系，院系分项不等于总数。</p>
   <p><a href="{{ details_url }}">统计明细及纳入／排除原因</a> · <a href="{{ csv_url }}">导出 CSV</a></p>
   <div class="report-bars" aria-label="按类型拆分去重成果">

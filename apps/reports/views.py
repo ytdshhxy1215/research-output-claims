@@ -16,6 +16,7 @@ from django.views.decorators.http import require_POST, require_safe
 from apps.reports.forms import DepartmentForm, FiltersForm, TrendForm
 from apps.reports.services import (
     DEFAULT_TREND_YEARS,
+    DEMO_REPORT_YEAR,
     KINDS,
     POLICIES,
     SOURCE_LABEL,
@@ -162,6 +163,10 @@ def _show(request, mode, snapshot_id=None):
     if snapshot_id is None:
         context["form"] = FiltersForm(initial=_query(report.filters))
         context["trend_url"] = url("trend")
+        if report.count == 0 and report.filters.year != DEMO_REPORT_YEAR:
+            example = replace(report.filters, year=DEMO_REPORT_YEAR)
+            context["demo_year"] = DEMO_REPORT_YEAR
+            context["demo_year_url"] = _url("index", example, department_id)
         context["visible_snapshots"] = snapshots(request.user)
         context["can_freeze"] = report.school_count is not None
     return render(request, "reports/index.html", context)

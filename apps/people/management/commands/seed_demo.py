@@ -6,6 +6,7 @@ from django.contrib.auth.models import Group, Permission
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
+from apps.people.access import SCHOOL_REVIEWER_GROUP, SYNC_VIEW_PERMISSION
 from apps.people.models import AffiliationPeriod, Department, DepartmentReviewer, Researcher
 
 
@@ -49,11 +50,12 @@ class Command(BaseCommand):
                 )
         for username, department in (("review-alpha", first), ("review-beta", second)):
             DepartmentReviewer.objects.get_or_create(user=demo_user(username), department=department)
-        school, _ = Group.objects.get_or_create(name="school-reviewers")
+        school, _ = Group.objects.get_or_create(name=SCHOOL_REVIEWER_GROUP)
         demo_user("school-review").groups.add(school)
         operator_group, _ = Group.objects.get_or_create(name="source-operators")
+        app_label, codename = SYNC_VIEW_PERMISSION.split(".", 1)
         operator_group.permissions.add(
-            Permission.objects.get(content_type__app_label="sources", codename="view_syncrun"),
+            Permission.objects.get(content_type__app_label=app_label, codename=codename),
         )
         demo_user("source-ops").groups.add(operator_group)
         self.stdout.write(self.style.SUCCESS("Synthetic teachers and reviewers are ready."))

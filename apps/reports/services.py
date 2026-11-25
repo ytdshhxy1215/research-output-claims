@@ -4,7 +4,6 @@ from dataclasses import asdict, dataclass
 from datetime import date, datetime
 from uuid import UUID
 
-from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
 from django.db import connection, transaction
 from django.db.models import Case, F, Q, When
@@ -14,7 +13,8 @@ from django.utils import timezone
 
 from apps.catalog.models import Work
 from apps.claims.models import Attribution
-from apps.people.models import AffiliationPeriod, Department, DepartmentReviewer
+from apps.people.access import WorkspaceAccess
+from apps.people.models import AffiliationPeriod, Department
 from apps.reports.models import ReportSnapshot
 
 POLICIES = {"overview": "成果概览 v1", "strict": "学院考核示例 v1"}
@@ -25,6 +25,7 @@ POLICY_RULES = {
 KINDS = {"paper": "论文", "patent": "专利"}
 IMPLEMENTATION_VERSION = "reports-v1"
 SOURCE_LABEL = "模拟源 / 合成数据"
+DEMO_REPORT_YEAR = 2025  # The synthetic fixture's example reporting year, not the default filter.
 DEFAULT_TREND_YEARS = 5
 MAX_TREND_YEARS = 10
 REASONS = {
@@ -110,17 +111,12 @@ class _Viewer:
 
 
 def _viewer(user):
-    if not user.is_authenticated:
-        raise PermissionDenied
-    active = get_user_model().objects.filter(pk=user.pk, is_active=True)
-    if active.filter(groups__name="school-reviewers").exists():
+    access = WorkspaceAccess(user)
+    if access.school:
         return _Viewer(True, frozenset())
-    ids = frozenset(
-        DepartmentReviewer.objects.filter(user__in=active).values_list("department_id", flat=True)
-    )
-    if not ids:
+    if not access.department_ids:
         raise PermissionDenied
-    return _Viewer(False, ids)
+    return _Viewer(False, access.department_ids)
 
 
 @contextmanager
