@@ -1,0 +1,135 @@
+name: GHCR and demo release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: github.event.deleted == false
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci.yml
+
+  publish-image:
+    name: Publish and smoke-test digest-pinned demo
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      version: ${{ steps.refs.outputs.version }}
+      image_tag: ${{ steps.refs.outputs.image_tag }}
+      image: ${{ steps.image.outputs.image }}
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+      - name: Validate version and refuse to replace a published release
+        id: refs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$GITHUB_REF_NAME"
+          if [[ ! "$version" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ || ${#version} -gt 128 ]]; then
+            echo 'Expected a stable SemVer tag (vMAJOR.MINOR.PATCH).' >&2
+            exit 1
+          fi
+          if response=$(gh api --include "repos/$GITHUB_REPOSITORY/releases/tags/$version" 2>&1); then
+            echo "Release $version already exists; refusing to republish its image." >&2
+            exit 1
+          elif [[ ! "$response" =~ \(HTTP\ 404\) ]]; then
+            printf '%s\n' "$response" >&2
+            exit 1
+          fi
+          repository="ghcr.io/${GITHUB_REPOSITORY,,}"
+          printf 'version=%s\nrepository=%s\nimage_tag=%s:%s\n' \
+            "$version" "$repository" "$repository" "$version" >> "$GITHUB_OUTPUT"
+      - name: Log in to GHCR with the job token
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+        run: printf '%s\n' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Build and push the versioned image
+        id: image
+        env:
+          IMAGE_REPOSITORY: ${{ steps.refs.outputs.repository }}
+          IMAGE_TAG: ${{ steps.refs.outputs.image_tag }}
+          VERSION: ${{ steps.refs.outputs.version }}
+        run: |
+          metadata="$RUNNER_TEMP/image-metadata.json"
+          docker buildx build --push --platform linux/amd64 --tag "$IMAGE_TAG" \
+            --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --label "org.opencontainers.image.version=$VERSION" \
+            --metadata-file "$metadata" .
+          digest=$(jq -er '."containerimage.digest" | select(test("^sha256:[a-f0-9]{64}$"))' "$metadata")
+          printf 'image=%s@%s\n' "$IMAGE_REPOSITORY" "$digest" >> "$GITHUB_OUTPUT"
+          printf "Version tag: \`%s\`\n\nImmutable image: \`%s@%s\`\n" \
+            "$IMAGE_TAG" "$IMAGE_REPOSITORY" "$digest" >> "$GITHUB_STEP_SUMMARY"
+      - name: Assemble and smoke-test the actual release ZIP
+        env:
+          IMAGE: ${{ steps.image.outputs.image }}
+          VERSION: ${{ steps.refs.outputs.version }}
+        run: |
+          release_dir="$RUNNER_TEMP/release-assets"
+          demo_dir="$RUNNER_TEMP/release-demo"
+          archive="research-output-claims-demo-$VERSION.zip"
+          python3 scripts/ci/package_demo.py --version "$VERSION" --image "$IMAGE" --output "$release_dir"
+          (cd "$release_dir" && sha256sum --check "$archive.sha256")
+          python3 -m zipfile -e "$release_dir/$archive" "$demo_dir"
+          (cd "$demo_dir" && sha256sum --check SHA256SUMS)
+          grep -Fxq "APP_IMAGE=$IMAGE" "$demo_dir/.env.example"
+          exec python3 scripts/ci/compose_smoke.py --directory "$demo_dir" --image "$IMAGE" \
+            --log "$RUNNER_TEMP/release-smoke.log"
+      - name: Log out of GHCR
+        if: always() && steps.refs.outcome == 'success'
+        run: docker logout ghcr.io
+      - name: Keep release smoke diagnostics
+        if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: release-smoke-logs
+          path: ${{ runner.temp }}/release-smoke.log
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Pass verified assets to the release job
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: demo-release-assets
+          path: ${{ runner.temp }}/release-assets/
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 7
+
+  publish-release:
+    name: Attach demo assets to the versioned GitHub Release
+    needs: publish-image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: demo-release-assets
+      - name: Publish assets against the existing tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.publish-image.outputs.version }}
+          IMAGE_TAG: ${{ needs.publish-image.outputs.image_tag }}
+          IMAGE: ${{ needs.publish-image.outputs.image }}
+        run: |
+          archive="research-output-claims-demo-$VERSION.zip"
+          sha256sum --check "$archive.sha256"
+          notes=$(printf "GHCR version tag: \`%s\`\n\nImmutable image (\`APP_IMAGE\`): \`%s\`\n\nVerify the ZIP against its \`.sha256\` asset before unpacking. The bundle is a synthetic \`linux/amd64\` demo; this run does not deploy it." "$IMAGE_TAG" "$IMAGE")
+          gh release create "$VERSION" "$archive" "$archive.sha256" \
+            --repo "$GITHUB_REPOSITORY" --verify-tag --title "$VERSION" --generate-notes --notes "$notes"

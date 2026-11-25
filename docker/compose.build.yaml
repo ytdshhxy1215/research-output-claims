@@ -1,0 +1,6 @@
+# Local build overlay. Paths are relative to the root compose.yaml.
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile

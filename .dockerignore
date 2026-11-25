@@ -1,0 +1,24 @@
+# Only application sources, locked dependencies and synthetic fixtures go into the image.
+**
+!manage.py
+!pyproject.toml
+!uv.lock
+!apps/**
+!config/**
+!templates/**
+!static/**
+!fixture_source.py
+!fixture_source/**
+!fixtures/**
+!docker/healthcheck.py
+
+# Even under an included tree, exclude local secrets and generated artifacts.
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+**/.ruff_cache
+**/node_modules

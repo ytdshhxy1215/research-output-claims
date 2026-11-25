@@ -21,3 +21,9 @@ dist/
 /local/
 /exports/
 /db.sqlite3
+
+# Generated application static artifacts
+/staticfiles/
+/playwright-report/
+/test-results/
+/.local-tools/

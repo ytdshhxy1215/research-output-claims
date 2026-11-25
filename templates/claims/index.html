@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+{% block title %}认领与审核 · 学术成果归集{% endblock %}
+{% block content %}
+<h1>认领与审核</h1>
+<p>认领的是成果上的一个作者或发明人署名，不是整项成果。</p>
+{% if is_researcher %}
+<article>
+  <h2>按标识查找成果</h2>
+  <form method="get" action="{% url 'claims:index' %}">
+    {{ form.identifier.label_tag }} {{ form.identifier }} <button type="submit">查找</button>
+    {{ form.identifier.errors }}
+  </form>
+  {% if found != None %}
+    {% for work in found %}
+    <section>
+      <h3>{{ work.title }}</h3>
+      <p>标识：{{ work.identifier }}</p>
+      <ul>
+      {% for slot in work.slots.all %}
+        <li>
+          第 {{ slot.position }} 位 · {{ slot.name }} —
+          {% if slot.own_case_id %}
+          <a href="{% url 'claims:detail' slot.own_case_id %}">查看我的申请</a>
+          {% else %}
+          <a href="{% url 'claims:submit' slot.pk %}">认领此署名</a>
+          {% endif %}
+        </li>
+      {% empty %}
+        <li>当前没有可认领的署名。</li>
+      {% endfor %}
+      </ul>
+    </section>
+    {% empty %}
+      <p role="status">当前成果库未找到。</p>
+    {% endfor %}
+  {% endif %}
+</article>
+<section aria-labelledby="recommendations">
+  <h2 id="recommendations">推荐给我的署名</h2>
+  <p>建议只提供核对线索，不代表归属，也不影响你主动查找和认领。</p>
+  <div class="cards">
+  {% for item in recommendations %}
+    <article>
+      <h3>{{ item.work.title }}</h3>
+      <p>第 {{ item.slot.position }} 位 · {{ item.slot.name }}</p>
+      <ul>{% for reason in item.reasons %}<li>{{ reason }}</li>{% endfor %}</ul>
+      <a class="button" href="{% url 'claims:submit' item.slot_id %}">认领此署名</a>
+      <form method="post" action="{% url 'claims:dismiss' item.slot_id %}">
+        {% csrf_token %}<button class="quiet" type="submit">不属于我</button>
+      </form>
+    </article>
+  {% empty %}
+    <p>暂无足够线索的建议，可按标识查找。</p>
+  {% endfor %}
+  </div>
+</section>
+<section aria-labelledby="own-claims">
+  <h2 id="own-claims">我的申请</h2>
+  {% include 'claims/_cases.html' with page=my_page page_param='mine' show_applicant=False only %}
+</section>
+{% endif %}
+{% if is_reviewer %}
+<section aria-labelledby="review-queue">
+  <h2 id="review-queue">审核与复核台</h2>
+  {% include 'claims/_cases.html' with page=review_page page_param='queue' show_applicant=True only %}
+</section>
+{% endif %}
+{% if not is_researcher and not is_reviewer %}
+<p>此账号未关联教师身份，也没有认领审核职责。</p>
+{% endif %}
+{% endblock %}

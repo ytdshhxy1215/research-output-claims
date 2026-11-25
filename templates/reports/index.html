@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}成果统计 · 学术成果归集{% endblock %}
+{% block content %}
+<h1>成果统计</h1>
+{% include "reports/_meta.html" %}
+{% if report.snapshot_id %}
+  <p>事实已冻结；展示仍受当前权限限制。<a href="{{ live_url }}">查看同条件的实时统计</a></p>
+{% else %}
+  <form method="get" action="{% url 'reports:index' %}">
+    {% if report.department_id %}<input type="hidden" name="department" value="{{ report.department_id }}">{% endif %}
+    {{ form.as_p }}
+    <button type="submit">查询</button>
+  </form>
+  <p>实时统计可能随来源、核准归属和任职更正而变化。</p>
+{% endif %}
+{% if report.department_id %}<p><a href="{{ full_scope_url }}">返回完整授权范围</a></p>{% endif %}
+<article>
+  <h2>{{ report.scope_label }}去重成果：<span data-report-total>{{ report.count }}</span></h2>
+  <p>按成果独立去重。成果可归属多个院系，院系分项不等于总数。</p>
+  <p><a href="{{ details_url }}">统计明细及纳入／排除原因</a> · <a href="{{ csv_url }}">导出 CSV</a></p>
+  <div class="report-bars" aria-label="按类型拆分去重成果">
+    {% for label, count in type_counts %}
+    <div><span>{{ label }}：{{ count }}</span><meter min="0" max="{{ bar_scale }}" value="{{ count }}" aria-label="{{ label }}成果数"></meter></div>
+    {% endfor %}
+  </div>
+  <table>
+    <thead><tr><th scope="col">院系</th><th scope="col">成果数</th><th scope="col">下钻</th></tr></thead>
+    <tbody>
+      {% for department in departments %}
+      <tr>
+        <th scope="row">{{ department.name }} ({{ department.code }})</th>
+        <td><span data-department="{{ department.code }}">{{ department.count }}</span> <meter min="0" max="{{ bar_scale }}" value="{{ department.count }}" aria-label="{{ department.name }}成果数"></meter></td>
+        <td><a href="{{ department.details_url }}">查看{{ department.name }}明细</a></td>
+      </tr>
+      {% empty %}<tr><td colspan="3">没有可显示的院系。</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</article>
+{% if not report.snapshot_id %}
+  {% if can_freeze %}
+  <form method="post" action="{% url 'reports:freeze' %}">
+    {% csrf_token %}
+    <input type="hidden" name="policy" value="{{ report.filters.policy }}">
+    <input type="hidden" name="year" value="{{ report.filters.year }}">
+    <input type="hidden" name="kind" value="{{ report.filters.kind }}">
+    {% if report.filters.work_id %}<input type="hidden" name="work_id" value="{{ report.filters.work_id }}">{% endif %}
+    <p><button type="submit">按当前条件冻结校级快照</button> 以提交时一致读取的事实为准，不覆盖已有快照。</p>
+  </form>
+  {% endif %}
+  <h2>可访问的最近快照</h2>
+  <ul>
+    {% for item in visible_snapshots %}
+      <li><a href="{% url 'reports:snapshot' item.id %}">{{ item.filters.year }} · {{ item.policy_label }} · {{ item.captured_at|date:'Y-m-d H:i:s T' }}</a>{% if item.filters.work_id %} · 成果 {{ item.filters.work_id }}{% endif %}</li>
+    {% empty %}<li>没有可访问的快照。</li>{% endfor %}
+  </ul>
+{% endif %}
+{% endblock %}

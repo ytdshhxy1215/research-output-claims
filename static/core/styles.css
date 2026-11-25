@@ -1,0 +1,30 @@
+:root { color-scheme: light; --ink:#13262d; --quiet:#4d646d; --brand:#075b57; --border:#cfdcda; --paper:#f4f7f6; }
+* { box-sizing:border-box; }
+body { margin:0; color:var(--ink); background:var(--paper); font:16px/1.55 system-ui,sans-serif; }
+a { color:var(--brand); text-underline-offset:0.2em; }
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline:3px solid #118983; outline-offset:3px; }
+.shell { width:min(1100px, calc(100% - 2rem)); margin:auto; }
+.topbar { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:1rem; padding:1rem 0; border-bottom:1px solid var(--border); }
+.brand { font-weight:750; text-decoration:none; }
+nav { display:flex; align-items:center; flex-wrap:wrap; gap:1rem; }
+nav form { margin:0; }
+.main-content { min-height:68vh; padding:2rem 0; }
+.hero,.auth-card,article { border:1px solid var(--border); border-radius:0.85rem; background:#fff; padding:clamp(1.2rem,4vw,2.5rem); }
+.hero { background:linear-gradient(122deg,#fff,#d9eee9); }
+.auth-card { max-width:29rem; margin:auto; }
+h1 { line-height:1.22; }
+h2 { font-size:1.18rem; }
+.eyebrow,.footer,.user-label { color:var(--quiet); }
+.cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(15rem,100%),1fr)); gap:1rem; margin:1rem 0; }
+button,.button { display:inline-block; border:1px solid var(--brand); border-radius:.45rem; padding:.5rem .9rem; color:#fff; background:var(--brand); text-decoration:none; font:inherit; cursor:pointer; }
+.quiet { color:var(--brand); background:transparent; }
+input,textarea,select { max-width:100%; font:inherit; padding:.4rem; border:1px solid #919fa1; border-radius:.3rem; }
+.stack label { display:block; }
+table { width:100%; border-collapse:collapse; }
+th,td { padding:.55rem; border-bottom:1px solid var(--border); text-align:left; vertical-align:top; }
+.footer { padding:1rem 0; border-top:1px solid var(--border); font-size:.9rem; }
+.errorlist { color:#982e23; }
+.table-scroll { overflow-x:auto; }
+.report-bars { display:grid; gap:.65rem; margin:1rem 0; }
+.report-bars > div { display:grid; grid-template-columns:7rem minmax(0,18rem); align-items:center; }
+meter { width:min(12rem,100%); accent-color:var(--brand); }

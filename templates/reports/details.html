@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}统计明细 · 学术成果归集{% endblock %}
+{% block content %}
+<h1>统计明细</h1>
+{% include "reports/_meta.html" %}
+<p><a href="{{ dashboard_url }}">返回看板</a> · <a href="{{ csv_url }}">导出同范围 CSV</a></p>
+<p>本范围纳入 {{ report.count }} 项去重成果。每项成果只列一行；缺少事件日期的记录不能归年，仅在校级作为待核对项显示，不计入总数。</p>
+<table>
+  <thead><tr><th scope="col">成果</th><th scope="col">统计事件日</th><th scope="col">结论</th><th scope="col">署名归属与计数理由</th></tr></thead>
+  <tbody>
+    {% for row in report.rows %}
+      <tr data-work-id="{{ row.work_id }}" data-counted="{{ row.counted|yesno:'1,0' }}">
+        <th scope="row">{{ row.title }}<br>{{ row.kind_label }} · {{ row.identifier }}</th>
+        <td>{{ row.event_date|default:"未确定" }}</td>
+        <td>{% if row.counted %}纳入{% else %}排除{% endif %}</td>
+        <td>
+          <ul>
+          {% for fact in row.facts %}
+            <li>
+              {% if fact.position %}署名第 {{ fact.position }} 位：{{ fact.slot_name }}{% else %}无来源署名{% endif %}
+              {% if fact.researcher %} · 核准人员：{{ fact.researcher }}{% endif %}
+              {% if fact.approved_at %} · 核准时间：{{ fact.approved_at }}{% endif %}
+              {% if fact.department %} · 主院系：{{ fact.department.name }} ({{ fact.department.code }}){% endif %}
+              · {% for reason in fact.reasons %}{{ reason.label }}{% if not forloop.last %}；{% endif %}{% endfor %}
+            </li>
+          {% endfor %}
+          </ul>
+        </td>
+      </tr>
+    {% empty %}<tr><td colspan="4">没有符合本范围的成果明细。</td></tr>{% endfor %}
+  </tbody>
+</table>
+{% endblock %}

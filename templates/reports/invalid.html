@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}统计参数错误 · 学术成果归集{% endblock %}
+{% block content %}
+<h1>统计参数无效</h1>
+{{ form.errors }}{{ scope.errors }}
+<p><a href="{% url 'reports:index' %}">返回成果统计</a></p>
+{% endblock %}
