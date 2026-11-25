@@ -14,7 +14,7 @@ docker compose run --rm --no-deps migrate python manage.py seed_demo
 
 打开 `http://127.0.0.1:8000/`（或 `.env` 指定的 `WEB_PORT`）。演示用户共用你设置的 `DEMO_PASSWORD`：教师 `lin`、`chen`、`lin-other`，院系审核 `review-alpha`、`review-beta`，校级复核 `school-review`，同步监控 `source-ops`。同步由 Worker 经 HTTP 执行，账户初始化不会写入成果记录。
 
-先以 `lin` 查看或查找 `10.5555/p1`，对第一署名提交认领；由 `review-beta` 初审驳回，`lin` 申诉后用 `school-review` 改判。以校级角色在成果统计选择 **2025 年 / 学院考核示例**：论文计入林岚发表时所在的甲院，不计入处理认领的乙院。更多步骤、批次推进和停止方式见[演示脚本](docs/operations/demo.md)与[容器手册](docs/operations/containers.md)。
+先以 `lin` 查看或查找 `10.5555/p1`，对第一署名提交认领；由 `review-beta` 初审驳回，`lin` 申诉后用 `school-review` 改判。以校级角色在成果统计选择 **2025 年 / 学院考核示例**：论文计入林岚发表时所在的甲院，不计入处理认领的乙院。也可以打开「跨年成果趋势」，按同一口径看近 1–10 年的计数，再进入对应年度明细。更多步骤、批次推进和停止方式见[演示脚本](docs/operations/demo.md)与[容器手册](docs/operations/containers.md)。
 
 ## 验证与维护
 
@@ -25,6 +25,6 @@ docker compose run --rm --no-deps migrate python manage.py seed_demo
 ## 设计与过程
 
 - [立项评审](docs/design/00-立项评审.md)、[需求规格](docs/design/01-需求规格.md)、[业务评审](docs/design/03-业务评审.md)
-- [系统架构](docs/design/02-系统架构.md)、[技术评审](docs/design/04-技术评审.md)、[首批执行记录](docs/development/implementation-log.md)
+- [系统架构](docs/design/02-系统架构.md)、[技术评审](docs/design/04-技术评审.md)、[首批执行记录](docs/development/implementation-log.md)、[P0 验收清单](docs/development/p0-acceptance.md)
 
 当前使用合成数据、单机部署和服务端页面。不收录课程站内容、真实人员信息或凭据。仓库公开可见，但项目许可证尚未选定。

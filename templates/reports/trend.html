@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}成果趋势 · 学术成果归集{% endblock %}
+{% block content %}
+<p class="eyebrow">{{ source_label }} · 实时统计</p>
+<h1>跨年成果趋势</h1>
+<p>{{ policy_label }} · {{ series.scope_label }} · 取数时间：
+  <time datetime="{{ series.captured_at|date:'c' }}">{{ series.captured_at|date:'Y-m-d H:i:s T' }}</time>
+</p>
+<form method="get" action="{% url 'reports:trend' %}">
+  {% if department_id %}<input type="hidden" name="department" value="{{ department_id }}">{% endif %}
+  {{ form.as_p }}
+  <button type="submit">应用趋势筛选</button>
+</form>
+<p><a href="{{ annual_url }}">返回截止年度统计</a></p>
+<article>
+  <h2>各年份去重成果</h2>
+  <p>按所选口径的成果事件年统计。未找到可计入的成果则显示 0；跨院成果在当前范围内只计一次。</p>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th scope="col">事件年</th><th scope="col">成果</th><th scope="col">论文</th><th scope="col">专利</th><th scope="col">下钻</th></tr></thead>
+      <tbody>
+        {% for point, details_url in rows %}
+        <tr data-trend-year="{{ point.year }}">
+          <th scope="row">{{ point.year }}</th>
+          <td><span data-trend-total>{{ point.total }}</span> <meter min="0" max="{{ scale }}" value="{{ point.total }}" aria-label="{{ point.year }} 年成果数"></meter></td>
+          <td data-trend-paper>{{ point.paper }}</td>
+          <td data-trend-patent>{{ point.patent }}</td>
+          <td><a href="{{ details_url }}">查看 {{ point.year }} 年明细</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</article>
+{% endblock %}

@@ -11,7 +11,7 @@
     {{ form.as_p }}
     <button type="submit">查询</button>
   </form>
-  <p>实时统计可能随来源、核准归属和任职更正而变化。</p>
+  <p>实时统计可能随来源、核准归属和任职更正而变化。 <a href="{{ trend_url }}">查看跨年成果趋势</a></p>
 {% endif %}
 {% if report.department_id %}<p><a href="{{ full_scope_url }}">返回完整授权范围</a></p>{% endif %}
 <article>

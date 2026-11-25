@@ -1,6 +1,7 @@
 import csv
 import re
 from collections import Counter
+from dataclasses import replace
 from urllib.parse import urlencode
 
 from django.contrib.auth.decorators import login_required
@@ -12,14 +13,18 @@ from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST, require_safe
 
-from apps.reports.forms import DepartmentForm, FiltersForm
+from apps.reports.forms import DepartmentForm, FiltersForm, TrendForm
 from apps.reports.services import (
+    DEFAULT_TREND_YEARS,
     KINDS,
+    POLICIES,
+    SOURCE_LABEL,
     ReportFilters,
     freeze_snapshot,
     snapshot_stats,
     snapshots,
     stats,
+    trend,
 )
 
 
@@ -156,6 +161,7 @@ def _show(request, mode, snapshot_id=None):
     context["bar_scale"] = max(report.count, 1)
     if snapshot_id is None:
         context["form"] = FiltersForm(initial=_query(report.filters))
+        context["trend_url"] = url("trend")
         context["visible_snapshots"] = snapshots(request.user)
         context["can_freeze"] = report.school_count is not None
     return render(request, "reports/index.html", context)
@@ -166,6 +172,34 @@ def _show(request, mode, snapshot_id=None):
 @require_safe
 def index(request):
     return _show(request, "index")
+
+
+@never_cache
+@login_required
+@require_safe
+def annual_trend(request):
+    scope = DepartmentForm(request.GET)
+    form = TrendForm(request.GET)
+    if not scope.is_valid() or not form.is_valid():
+        return render(request, "reports/invalid.html", {"scope": scope, "form": form}, status=400)
+
+    department_id = scope.cleaned_data["department"]
+    filters = _filters(form.cleaned_data)
+    years = form.cleaned_data["years"] or DEFAULT_TREND_YEARS
+    series = trend(request.user, filters, years=years, department_id=department_id)
+    return render(request, "reports/trend.html", {
+        "series": series,
+        "source_label": SOURCE_LABEL,
+        "policy_label": POLICIES[filters.policy],
+        "form": TrendForm(initial={**_query(filters), "years": years}),
+        "department_id": department_id,
+        "annual_url": _url("index", filters, department_id),
+        "scale": max(1, *(point.total for point in series.points)),
+        "rows": [
+            (point, _url("details", replace(filters, year=point.year), department_id))
+            for point in series.points
+        ],
+    })
 
 
 @never_cache

@@ -1,7 +1,7 @@
 from collections import defaultdict
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from django.contrib.auth import get_user_model
@@ -25,6 +25,8 @@ POLICY_RULES = {
 KINDS = {"paper": "论文", "patent": "专利"}
 IMPLEMENTATION_VERSION = "reports-v1"
 SOURCE_LABEL = "模拟源 / 合成数据"
+DEFAULT_TREND_YEARS = 5
+MAX_TREND_YEARS = 10
 REASONS = {
     "counted": "已核准，按事件日主院系计入",
     "not_approved": "无已核准归属",
@@ -75,6 +77,25 @@ class Report:
 
 
 @dataclass(frozen=True)
+class TrendYear:
+    year: int
+    paper: int
+    patent: int
+
+    @property
+    def total(self) -> int:
+        return self.paper + self.patent
+
+
+@dataclass(frozen=True)
+class ReportTrend:
+    filters: ReportFilters
+    captured_at: datetime
+    scope_label: str
+    points: tuple[TrendYear, ...]
+
+
+@dataclass(frozen=True)
 class _Viewer:
     school: bool
     department_ids: frozenset[int]
@@ -119,13 +140,17 @@ def _point_in_time(*, publish=False):
         yield captured_at
 
 
-def _work_query(filters):
+def _work_query(filters, *, first_year=None):
     patent_date = (
         F("granted_on") if filters.policy == "strict" else Least("published_on", "granted_on")
     )
     work = Work.objects.annotate(
         event_date=Case(When(kind="patent", then=patent_date), default=F("published_on"))
-    ).filter(Q(event_date__year=filters.year) | Q(event_date__isnull=True))
+    )
+    if first_year is None:
+        work = work.filter(Q(event_date__year=filters.year) | Q(event_date__isnull=True))
+    else:
+        work = work.filter(event_date__range=(date(first_year, 1, 1), date(filters.year, 12, 31)))
     if filters.kind:
         work = work.filter(kind=filters.kind)
     if filters.work_id is not None:
@@ -188,12 +213,12 @@ def _fact(work, slot, attribution, periods, policy, first_count, captured_at):
     }
 
 
-def _build_payload(filters, captured_at):
+def _build_payload(filters, captured_at, *, first_year=None):
     departments = {
         str(pk): {"id": pk, "code": code, "name": name, "count": 0}
         for pk, code, name in Department.objects.order_by("code").values_list("pk", "code", "name")
     }
-    works = list(_work_query(filters))
+    works = list(_work_query(filters, first_year=first_year))
     slot_ids = [slot.pk for work in works for slot in work.slots.all()]
     attributions = {}
     for item in (
@@ -323,6 +348,31 @@ def stats(user, filters: ReportFilters, *, department_id=None) -> Report:
         viewer.require_department(department_id)
         return _project(
             _build_payload(filters, captured_at), viewer, filters, captured_at, department_id
+        )
+
+
+def trend(
+    user, filters: ReportFilters, *, years=DEFAULT_TREND_YEARS, department_id=None
+) -> ReportTrend:
+    """Count each authorized work once in its policy-selected event year."""
+    if not 1 <= years <= MAX_TREND_YEARS:
+        raise ValueError("Invalid trend length")
+    first_year = max(1, filters.year - years + 1)
+    with _point_in_time() as captured_at:
+        viewer = _viewer(user)
+        viewer.require_department(department_id)
+        report = _project(
+            _build_payload(filters, captured_at, first_year=first_year),
+            viewer, filters, captured_at, department_id,
+        )
+        counts = {year: {kind: 0 for kind in KINDS} for year in range(first_year, filters.year + 1)}
+        for row in report.rows:
+            if row["counted"]:
+                event_year = date.fromisoformat(row["event_date"]).year
+                counts[event_year][row["kind"]] += 1
+        return ReportTrend(
+            filters, captured_at, report.scope_label,
+            tuple(TrendYear(year, **by_kind) for year, by_kind in counts.items()),
         )
 
 

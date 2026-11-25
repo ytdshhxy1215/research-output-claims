@@ -5,6 +5,7 @@ The existing `config` registration mounts `apps.reports.urls` at `/reports/`.
 | Django URL name (`reports:`) | Path | Method |
 | --- | --- | --- |
 | `index` | `/reports/` | GET |
+| `trend` | `/reports/trend/` | GET |
 | `details` | `/reports/details/` | GET |
 | `csv` | `/reports/export.csv` | GET |
 | `freeze` | `/reports/snapshots/freeze/` | POST (CSRF; redirects to snapshot) |
@@ -16,7 +17,11 @@ Live query / freeze form parameters: `year` (defaults to the current local
 calendar year), `policy=overview|strict` (defaults to overview), optional
 `kind=paper|patent`, optional numeric `work_id`. Reads additionally accept a
 numeric `department` ID to select a department in the viewer's current scope.
+`trend` interprets `year` as the ending year and accepts `years` (1–10,
+default 5). It uses one consistent read, applies the same authorization and work
+filters per year, fills missing years with zero, and links to annual details.
 A snapshot read uses frozen filters; only `department` can change its projection.
+The snapshot is still single-year and has no link to a live trend.
 
 For a management shell or CI smoke, with a school reviewer as `user`:
 
