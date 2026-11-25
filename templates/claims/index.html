@@ -7,6 +7,7 @@
 <article>
   <h2>按标识查找成果</h2>
   <form method="get" action="{% url 'claims:index' %}">
+    {% for name, value in search_state %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
     {{ form.identifier.label_tag }} {{ form.identifier }} <button type="submit">查找</button>
     {{ form.identifier.errors }}
   </form>
@@ -54,15 +55,31 @@
   {% endfor %}
   </div>
 </section>
-<section aria-labelledby="own-claims">
+<section aria-labelledby="own-claims" data-claim-section="mine">
   <h2 id="own-claims">我的申请</h2>
-  {% include 'claims/_cases.html' with page=my_page page_param='mine' show_applicant=False only %}
+  <nav class="queue-filters" aria-label="我的申请状态">
+    {% for key, label in teacher_stages %}
+    <a href="{% querystring stage=key mine=None %}#own-claims"{% if stage == key %} aria-current="true"{% endif %}>{{ label }}</a>
+    {% endfor %}
+  </nav>
+  <p>{{ my_page.paginator.count }} 条申请。初审驳回后，可打开申请详情提交一次申诉。</p>
+  {% include 'claims/_cases.html' with page=my_page page_param='mine' anchor='own-claims' show_applicant=False empty_label='当前筛选下暂无申请。' only %}
 </section>
 {% endif %}
 {% if is_reviewer %}
-<section aria-labelledby="review-queue">
+<section aria-labelledby="review-queue" data-claim-section="review">
   <h2 id="review-queue">审核与复核台</h2>
-  {% include 'claims/_cases.html' with page=review_page page_param='queue' show_applicant=True only %}
+  <nav class="queue-filters" aria-label="审核队列范围">
+    {% for key, label in review_filters %}
+    <a href="{% querystring review=key queue=None %}#review-queue"{% if review == key %} aria-current="true"{% endif %}>{{ label }}</a>
+    {% endfor %}
+  </nav>
+  {% if review == 'actionable' %}
+  <p>{{ review_page.paginator.count }} 条待办，按提交时间由早到晚。这里只列当前账号可做初审或复核决定的申请。</p>
+  {% else %}
+  <p>{{ review_page.paginator.count }} 条授权记录。含历史和仅可转派的申请，但不扩大审核权限。</p>
+  {% endif %}
+  {% include 'claims/_cases.html' with page=review_page page_param='queue' anchor='review-queue' show_applicant=True empty_label='当前范围暂无申请。' only %}
 </section>
 {% endif %}
 {% if not is_researcher and not is_reviewer %}

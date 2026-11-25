@@ -40,6 +40,19 @@ class ClaimsAccess(WorkspaceAccess):
             cases = cases.exclude(slot_id__in=self.own_cases().values("slot_id"))
         return cases
 
+    def awaiting_decisions(self):
+        """Queue of cases where this actor may make an initial or appeal decision now."""
+        review_scope = Q(review_department_id__in=self.department_ids)
+        decisions = Q()
+        if self.school:
+            review_scope |= Q(review_department_id__isnull=True)
+            decisions = Q(status=ClaimCase.Status.APPEALED) & ~Q(
+                initial_reviewer_id=self.actor.pk,
+            )
+        decisions |= Q(status__in=FIRST_REVIEW_STATES) & review_scope
+        # Reassignment is an oversight action, not an initial or appeal decision.
+        return self.oversight_cases().filter(decisions).order_by("submitted_at", "pk")
+
     def visible_cases(self):
         oversight = self.oversight_cases().order_by().values("pk")
         return ClaimCase.objects.filter(Q(researcher_id=self.researcher_id) | Q(pk__in=oversight))

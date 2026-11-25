@@ -77,3 +77,27 @@ uv run --locked pytest
 4. 打开 `http://127.0.0.1:8000/claims/`（换成实际端口），以 `lin` 登录，搜索 `10.5555/p1`。Worker 正在处理时可稍后再搜索。演示结束运行 `docker compose -p roc-demo-v123 down`；确认不再需要该演示数据库时才添加 `--volumes`。只清理本次演示项目。
 
 进一步的运行排障见 [容器运行手册](containers.md)。
+
+## 交付路径
+
+```mermaid
+flowchart LR
+    PR[PR 或 main 提交] --> CI[Django 与 PostgreSQL 门禁]
+    PR --> S[空卷 Compose 业务冒烟]
+    PR --> D[文档链接及 Mermaid 渲染]
+    D --> G[PR 可下载文档图册]
+    Tag[已审查提交上的 vX.Y.Z] --> Again[复用 CI 检查]
+    Again --> Build[构建和推送 GHCR 镜像]
+    Build --> Check[以镜像摘要组装 ZIP 并拉取冒烟]
+    Check --> Release[GitHub Release 附件和校验值]
+    Release --> Target[由已授权主机按摘要部署]
+```
+
+这里的 CD 是**持续交付**：负责版本化镜像、验收和发布包，不会从 PR 或标签自动登录未配置的服务器。目标主机确定后，按[容器手册](containers.md)管理主机、TLS、配置和数据库备份；部署应使用已测试的镜像摘要，检查迁移、Worker 水位及就绪状态。上一版本镜像不能保证能读升级后数据库，迁移和数据回滚须各自验证。
+
+`Docs / links and Mermaid` 检查 Markdown 本地链接、代码围栏，实际渲染源码中的 Mermaid 图。PR 或 Release CI 的 `documentation-diagrams` 附件包含 SVG 和索引，不需在应用镜像里安装 Node。它不会检查链接目标片段、外部网站可用性或图的业务正确性；改动业务规则时仍要在同一 PR 核对图与实现。
+
+```sh
+python scripts/ci/check_docs.py
+python scripts/ci/check_docs.py --render build-diagrams
+```

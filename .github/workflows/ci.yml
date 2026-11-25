@@ -78,3 +78,21 @@ jobs:
           path: ${{ runner.temp }}/compose-smoke.log
           if-no-files-found: ignore
           retention-days: 7
+
+  docs:
+    name: Docs / links and Mermaid
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+      - name: Validate local links and render every Mermaid block
+        run: python3 scripts/ci/check_docs.py --render "$RUNNER_TEMP/roc-documentation"
+      - name: Upload rendered documentation diagrams
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: documentation-diagrams
+          path: ${{ runner.temp }}/roc-documentation/
+          if-no-files-found: error
+          retention-days: 14

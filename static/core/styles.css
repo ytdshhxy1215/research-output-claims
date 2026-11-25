@@ -43,3 +43,7 @@ meter { width:min(12rem,100%); accent-color:var(--brand); }
 .access-panel { max-width:47rem; border:1px solid var(--border); border-top:4px solid var(--brand); border-radius:.85rem; background:#fff; padding:clamp(1.2rem,4vw,2.5rem); }
 .notice { background:#edf5f3; color:#26433f; border-left:3px solid var(--brand); border-radius:.25rem; padding:.7rem .85rem; }
 .notice p { margin:.25rem 0; }
+.queue-filters { gap:.45rem; }
+.queue-filters a { padding:.28rem .6rem; border:1px solid var(--border); border-radius:.4rem; text-decoration:none; }
+.queue-filters a:hover,.queue-filters [aria-current="true"] { color:#064b48; background:#dceeea; }
+.queue-filters [aria-current="true"] { border-color:var(--brand); font-weight:700; }

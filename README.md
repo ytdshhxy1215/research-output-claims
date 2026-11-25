@@ -24,6 +24,8 @@ docker compose run --rm --no-deps migrate python manage.py seed_demo
 
 ## 设计与过程
 
+从 [项目文档索引](docs/INDEX.md) 查看 UML 类图、状态图、时序图、分层数据流、数据库关系与交付拓扑。
+
 - [立项评审](docs/design/00-立项评审.md)、[需求规格](docs/design/01-需求规格.md)、[业务评审](docs/design/03-业务评审.md)
 - [系统架构](docs/design/02-系统架构.md)、[技术评审](docs/design/04-技术评审.md)、[首批执行记录](docs/development/implementation-log.md)、[P0 验收清单](docs/development/p0-acceptance.md)
 

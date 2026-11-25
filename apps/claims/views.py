@@ -22,6 +22,17 @@ ACTION_FORMS = {
     Action.REASSIGN: (forms.ReassignForm, services.reassign_claim, "转派审核"),
 }
 INTERNAL_EVENTS = (ClaimEvent.Kind.REASSIGNED, ClaimEvent.Kind.CONFLICT)
+TEACHER_STAGES = {
+    "all": ("全部申请", ()),
+    "in_progress": ("进行中", (
+        ClaimCase.Status.PENDING, ClaimCase.Status.CONFLICT, ClaimCase.Status.APPEALED,
+    )),
+    "appeal_available": ("可申诉", (ClaimCase.Status.REJECTED,)),
+    "finished": ("已结束", (
+        ClaimCase.Status.APPROVED, ClaimCase.Status.UPHELD, ClaimCase.Status.REVOKED,
+    )),
+}
+REVIEW_FILTERS = {"actionable": "待我处理", "all": "全部授权记录"}
 
 
 def _case_rows(queryset):
@@ -52,16 +63,43 @@ def index(request):
                 for slot in work.slots.all():
                     slot.own_case_id = own_by_slot.get(slot.pk)
 
+    is_researcher = access.researcher_id is not None
+    is_reviewer = access.can_view_reports
+    stage = request.GET.get("stage", "all")
+    stage = stage if stage in TEACHER_STAGES else "all"
+    review = request.GET.get("review", "actionable")
+    review = review if review in REVIEW_FILTERS else "actionable"
+
+    my_page = review_page = None
+    if is_researcher:
+        own_cases = access.own_cases()
+        if statuses := TEACHER_STAGES[stage][1]:
+            own_cases = own_cases.filter(status__in=statuses)
+        my_page = Paginator(_case_rows(own_cases), 25).get_page(request.GET.get("mine"))
+    if is_reviewer:
+        review_cases = (
+            access.awaiting_decisions() if review == "actionable" else access.oversight_cases()
+        )
+        review_page = Paginator(_case_rows(review_cases), 25).get_page(request.GET.get("queue"))
+
+    search_state = {key: request.GET[key] for key in ("mine", "queue") if key in request.GET}
+    if "stage" in request.GET:
+        search_state["stage"] = stage
+    if "review" in request.GET:
+        search_state["review"] = review
     return render(request, "claims/index.html", {
         "form": form,
         "found": found,
         "recommendations": discovery.personal_recommendations(access),
-        "is_researcher": access.researcher_id is not None,
-        "is_reviewer": access.school or bool(access.department_ids),
-        "my_page": Paginator(_case_rows(access.own_cases()), 25).get_page(request.GET.get("mine")),
-        "review_page": Paginator(_case_rows(access.oversight_cases()), 25).get_page(
-            request.GET.get("queue"),
-        ),
+        "is_researcher": is_researcher,
+        "is_reviewer": is_reviewer,
+        "my_page": my_page,
+        "review_page": review_page,
+        "stage": stage,
+        "teacher_stages": [(key, item[0]) for key, item in TEACHER_STAGES.items()],
+        "review": review,
+        "review_filters": REVIEW_FILTERS.items(),
+        "search_state": search_state.items(),
     })
 
 
