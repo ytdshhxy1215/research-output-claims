@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }} · 学术成果归集{% endblock %}
+{% block content %}
+{% if case %}
+<p><a href="{% url 'claims:detail' case.pk %}">返回申请详情</a></p>
+<p>{{ case.slot.work.title }} · 第 {{ case.slot.position }} 位 {{ case.slot.name }}</p>
+{% else %}
+<p><a href="{% url 'claims:index' %}?identifier={{ slot.work.identifier|urlencode }}">返回查找结果</a></p>
+<p>{{ slot.work.title }} · 第 {{ slot.position }} 位 {{ slot.name }}</p>
+{% endif %}
+<article>
+  <h1>{{ title }}</h1>
+  {% if action == 'review' or action == 'resolve' %}
+  <p>决定理由会告知本申请人，请勿写入其他申请人的证据。存在有效归属时，须先由校级显式撤销旧归属，才能核准。</p>
+  {% elif action == 'revoke' %}
+  <p>撤销将结束此署名归属的有效期。受影响的申请人可看到撤销原因；已发布统计快照不变。</p>
+  {% elif action == 'reassign' %}
+  <p>转派只更改审核管辖，不更改统计归属。理由仅在授权审核的审计记录中显示。</p>
+  {% endif %}
+  {% if state_error %}<p role="alert">{{ state_error }}</p>{% endif %}
+  {% if form %}
+  <form method="post" class="stack">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">{{ title }}</button>
+  </form>
+  {% endif %}
+</article>
+{% endblock %}

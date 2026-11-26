@@ -1,0 +1,92 @@
+name: research-output-claims
+
+x-app: &app
+  image: ${APP_IMAGE:-research-output-claims:local}
+  init: true
+
+x-django-env: &django-env
+  DJANGO_DEBUG: ${DJANGO_DEBUG:-0}
+  DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?set DJANGO_SECRET_KEY in .env or the shell}
+  DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
+  DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:-}
+  DJANGO_HTTPS: ${DJANGO_HTTPS:-0}
+  POSTGRES_DB: ${POSTGRES_DB:-research}
+  POSTGRES_USER: ${POSTGRES_USER:-research}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env or the shell}
+  POSTGRES_HOST: db
+  POSTGRES_PORT: "5432"
+  FIXTURE_SOURCE_URL: ${FIXTURE_SOURCE_URL:-http://fixture-source:8081}
+
+services:
+  db:
+    image: postgres:18-trixie@sha256:c699303802144847d238196173655dbbecf7a96aeca1565f2b02eb671a1f0b6b
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-research}
+      POSTGRES_USER: ${POSTGRES_USER:-research}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env or the shell}
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", 'pg_isready -h 127.0.0.1 -p 5432 -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 15s
+    restart: unless-stopped
+
+  fixture-source:
+    <<: *app
+    command: ["python", "-m", "fixture_source"]
+    healthcheck:
+      test: ["CMD", "python", "/app/docker/healthcheck.py", "8081", "/healthz"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    restart: unless-stopped
+
+  migrate:
+    <<: *app
+    command: ["python", "manage.py", "migrate", "--noinput"]
+    environment:
+      <<: *django-env
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  web:
+    <<: *app
+    command: ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--no-control-socket"]
+    environment: *django-env
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "python", "/app/docker/healthcheck.py", "8000", "/healthz", "/readyz"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+
+  worker:
+    <<: *app
+    command: ["python", "manage.py", "run_sync_worker"]
+    environment: *django-env
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      fixture-source:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres-data:

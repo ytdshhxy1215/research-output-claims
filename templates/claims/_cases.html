@@ -1,0 +1,45 @@
+{% if page.object_list %}
+<div class="table-scroll">
+<table>
+  <thead><tr>
+    <th scope="col">成果与署名</th>
+    {% if show_applicant %}<th scope="col">申请人</th>{% endif %}
+    <th scope="col">审核管辖</th>
+    <th scope="col">状态</th>
+    <th scope="col">提交时间</th>
+  </tr></thead>
+  <tbody>
+    {% for case in page %}
+    <tr data-claim-id="{{ case.pk }}">
+      <td><a href="{% url 'claims:detail' case.pk %}">{{ case.slot.work.title }} · 第 {{ case.slot.position }} 位 {{ case.slot.name }}</a></td>
+      {% if show_applicant %}<td>{{ case.researcher.name }}</td>{% endif %}
+      <td>{{ case.review_department|default_if_none:'校级待分派' }}</td>
+      <td>{{ case.get_status_display }}</td>
+      <td><time datetime="{{ case.submitted_at|date:'c' }}">{{ case.submitted_at|date:'Y-m-d H:i' }}</time></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% if page.has_other_pages %}
+<nav aria-label="申请列表翻页">
+  {% if page.has_previous %}
+    {% if page_param == 'mine' %}
+    <a href="{% querystring mine=page.previous_page_number %}#{{ anchor }}">上一页</a>
+    {% else %}
+    <a href="{% querystring queue=page.previous_page_number %}#{{ anchor }}">上一页</a>
+    {% endif %}
+  {% endif %}
+  <span>第 {{ page.number }} / {{ page.paginator.num_pages }} 页</span>
+  {% if page.has_next %}
+    {% if page_param == 'mine' %}
+    <a href="{% querystring mine=page.next_page_number %}#{{ anchor }}">下一页</a>
+    {% else %}
+    <a href="{% querystring queue=page.next_page_number %}#{{ anchor }}">下一页</a>
+    {% endif %}
+  {% endif %}
+</nav>
+{% endif %}
+{% else %}
+<p>{{ empty_label }}</p>
+{% endif %}

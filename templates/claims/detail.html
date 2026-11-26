@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block title %}申请详情 · 学术成果归集{% endblock %}
+{% block content %}
+<p><a href="{% url 'claims:index' %}">返回认领与审核</a></p>
+<h1>申请详情</h1>
+<article>
+  <h2>{{ case.slot.work.title }}</h2>
+  <p>第 {{ case.slot.position }} 位 · {{ case.slot.name }} · {{ case.slot.work.identifier }}</p>
+  <dl>
+    <dt>当前状态</dt><dd>{{ status_label }}</dd>
+    {% if not is_owner %}<dt>申请人</dt><dd>{{ case.researcher.name }}</dd>{% endif %}
+    <dt>审核管辖</dt><dd>{{ case.review_department|default_if_none:'校级待分派' }}</dd>
+    <dt>证据说明</dt><dd>{{ case.evidence|linebreaksbr }}</dd>
+    {% if case.evidence_identifier %}<dt>证据标识符</dt><dd>{{ case.evidence_identifier }}</dd>{% endif %}
+  </dl>
+  {% if actions %}
+  <nav aria-label="申请操作">
+    {% if 'review' in actions %}<a class="button" href="{% url 'claims:review' case.pk %}">初审</a>{% endif %}
+    {% if 'appeal' in actions %}<a class="button" href="{% url 'claims:appeal' case.pk %}">申诉</a>{% endif %}
+    {% if 'resolve' in actions %}<a class="button" href="{% url 'claims:resolve' case.pk %}">复核</a>{% endif %}
+    {% if 'reassign' in actions %}<a class="button quiet" href="{% url 'claims:reassign' case.pk %}">转派</a>{% endif %}
+    {% if 'revoke' in actions %}<a class="button quiet" href="{% url 'claims:revoke' case.pk %}">撤销归属</a>{% endif %}
+  </nav>
+  {% endif %}
+</article>
+<section aria-labelledby="case-events">
+  <h2 id="case-events">{% if is_owner %}处理进度{% else %}审计记录{% endif %}</h2>
+  <form method="get" action="{% url 'claims:detail' case.pk %}#case-events">
+    <label for="event-kind">事件类型</label>
+    <select id="event-kind" name="event">
+      <option value="">全部可见事件</option>
+      {% for kind, label in event_kinds %}<option value="{{ kind }}"{% if event_kind == kind %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <button class="quiet" type="submit">筛选</button>
+  </form>
+  <ol>
+  {% for event in events %}
+    <li>
+      <strong>{{ event.get_kind_display }}</strong> · <time datetime="{{ event.occurred_at|date:'c' }}">{{ event.occurred_at|date:'Y-m-d H:i:s' }}</time>
+      {% if not is_owner %}
+        · 操作账号：{{ event.actor.get_username }}
+        {% if event.from_status %}· {{ event.get_from_status_display }} → {{ event.get_to_status_display }}{% endif %}
+        {% if event.kind == 'reassigned' %}<br>管辖：{{ event.from_department|default_if_none:'校级' }} → {{ event.to_department|default_if_none:'校级' }}{% endif %}
+      {% endif %}
+      {% if not is_owner or event.kind != 'submitted' %}<p>{{ event.reason|linebreaksbr }}</p>{% endif %}
+    </li>
+  {% empty %}<li>当前条件下没有可见事件。</li>
+  {% endfor %}
+  </ol>
+</section>
+{% endblock %}

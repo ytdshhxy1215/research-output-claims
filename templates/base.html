@@ -1,0 +1,35 @@
+{% load static %}<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}学术成果智能归集与认领系统{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'core/styles.css' %}">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到正文</a>
+  <header class="shell topbar">
+    <a class="brand" href="{% url 'home' %}">学术成果归集</a>
+    <nav class="main-nav" aria-label="主导航">
+      {% if workspace.can_view_claims %}<a href="{% url 'claims:index' %}"{% if request.resolver_match.namespace == 'claims' %} aria-current="page"{% endif %}>{% if workspace.researcher_id %}认领工作台{% else %}审核工作台{% endif %}</a>{% endif %}
+      {% if workspace.can_view_reports %}<a href="{% url 'reports:index' %}"{% if request.resolver_match.namespace == 'reports' %} aria-current="page"{% endif %}>成果统计</a>{% endif %}
+      {% if workspace.can_view_sync %}<a href="{% url 'sync_operations' %}"{% if request.resolver_match.url_name == 'sync_operations' %} aria-current="page"{% endif %}>同步运行</a>{% endif %}
+      {% if not user.is_authenticated %}<a href="{% url 'login' %}">登录</a>{% endif %}
+    </nav>
+    {% if user.is_authenticated %}
+    <div class="session-tools">
+      <span class="user-label" aria-label="当前账号">{{ user.get_username }}</span>
+      <span class="role-badges" aria-label="当前角色">
+        {% for label in workspace.role_labels %}<span class="role-badge">{{ label }}</span>{% empty %}<span class="role-badge">未分配角色</span>{% endfor %}
+      </span>
+      <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="quiet compact" type="submit">退出</button></form>
+    </div>
+    {% endif %}
+  </header>
+  <main class="shell main-content" id="main" tabindex="-1">
+    {% if messages %}<ul class="messages" aria-live="polite">{% for message in messages %}<li>{{ message }}</li>{% endfor %}</ul>{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="shell footer">课程项目 · 合成数据 · 非学校正式考核口径</footer>
+</body>
+</html>

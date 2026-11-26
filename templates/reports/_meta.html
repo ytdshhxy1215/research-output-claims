@@ -1,0 +1,9 @@
+<p class="eyebrow">{{ report.source_label }} · {% if report.snapshot_id %}冻结快照{% else %}实时统计{% endif %}</p>
+<p>
+  {{ report.policy_label }} · {{ report.implementation_version }} · {{ report.scope_label }}<br>
+  事件日期：{{ report.filters.year }}-01-01 至 {{ report.filters.year }}-12-31（含首尾）<br>
+  取数时间：<time datetime="{{ report.captured_at|date:'c' }}">{{ report.captured_at|date:'Y-m-d H:i:s T' }}</time>
+  {% if report.filters.kind %}<br>成果类型：{% if report.filters.kind == 'paper' %}论文{% else %}专利{% endif %}{% endif %}
+  {% if report.filters.work_id %}<br>指定成果编号：{{ report.filters.work_id }}{% endif %}
+</p>
+<p>{{ report.policy_rule }}院系按该事件日明确的历史主归属判定。</p>

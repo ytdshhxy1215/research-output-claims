@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}同步运行详情 · 学术成果归集{% endblock %}
+{% block content %}
+<p><a href="{% url 'sync_operations' %}">返回同步运行</a></p>
+<h1>同步运行 #{{ run.pk }}</h1>
+<p>{{ run.scope.get_stream_display }} · {{ run.release_id }} · {{ run.get_status_display }}</p>
+<p>窗口 {{ run.window_start|date:'c' }} 至 {{ run.window_end|date:'c' }}，已提交 {{ run.pages_committed }} 页、{{ run.events_committed }} 条事件。</p>
+{% if run.error_code %}<p>失败分类 {{ run.error_code }}。{% if run.next_attempt_at %}下次尝试 {{ run.next_attempt_at|date:'c' }}。{% endif %}</p>{% endif %}
+{% if form %}
+<section><h2>请求重放</h2><form method="post" action="{% url 'sync_replay' run.pk %}">
+  {% csrf_token %}{{ form.as_p }}<button type="submit">排队重放</button>
+</form></section>
+{% endif %}
+<h2>最近尝试</h2>
+<ul>{% for item in attempts %}<li>{{ item.started_at|date:'c' }} · {{ item.get_outcome_display }}{% if item.error_code %} · {{ item.error_code }}{% endif %}</li>{% empty %}<li>暂无尝试。</li>{% endfor %}</ul>
+<h2>重放记录</h2>
+<ul>{% for item in replays %}<li>{{ item.requested_at|date:'c' }} · {{ item.actor.get_username }} · 原状态 {{ item.get_previous_status_display }}<p>{{ item.reason }}</p></li>{% empty %}<li>暂无重放记录。</li>{% endfor %}</ul>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block title %}同步运行 · 学术成果归集{% endblock %}
+{% block content %}
+<p class="eyebrow">数据运维 · 合成 HTTP 数据</p>
+<h1>同步运行</h1>
+<h2>数据流水位</h2>
+<ul>{% for scope in scopes %}<li>{{ scope.get_stream_display }}：{{ scope.watermark|date:'c' }}</li>{% empty %}<li>等待 Worker 初始化。</li>{% endfor %}</ul>
+<h2>最近 40 个同步窗口</h2>
+<div class="table-scroll"><table>
+<thead><tr><th>编号</th><th>数据流</th><th>发布批次</th><th>窗口上界</th><th>状态</th><th>页面 / 事件</th><th>尝试次数</th><th>失败分类</th></tr></thead>
+<tbody>{% for run in runs %}
+<tr><td><a href="{% url 'sync_detail' run.pk %}">{{ run.pk }} · 详情</a></td><td>{{ run.scope.get_stream_display }}</td><td>{{ run.release_id }}</td><td>{{ run.window_end|date:'c' }}</td><td>{{ run.get_status_display }}</td><td>{{ run.pages_committed }} / {{ run.events_committed }}</td><td>{{ run.attempts }}</td><td>{{ run.error_code|default:'—' }}</td></tr>
+{% empty %}<tr><td colspan="8">尚无任务运行记录。</td></tr>{% endfor %}</tbody>
+</table></div>
+{% endblock %}

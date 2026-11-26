@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  django:
+    name: Django / Python 3.14 / PostgreSQL 18
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      DJANGO_SECRET_KEY: ci-only-not-for-deployment
+      POSTGRES_DB: research
+      POSTGRES_USER: research
+      POSTGRES_PASSWORD: ci-only-db-password
+      POSTGRES_HOST: 127.0.0.1
+    services:
+      postgres:
+        # Same PostgreSQL 18 manifest as compose.yaml.
+        image: postgres:18-trixie@sha256:c699303802144847d238196173655dbbecf7a96aeca1565f2b02eb671a1f0b6b
+        env:
+          POSTGRES_DB: research
+          POSTGRES_USER: research
+          POSTGRES_PASSWORD: ci-only-db-password
+        ports:
+          - '5432'
+        options: >-
+          --health-cmd "pg_isready -h 127.0.0.1 -U research -d research"
+          --health-interval 5s --health-timeout 3s --health-retries 12
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+        with:
+          version: '0.13.10'
+          # Astral uv release asset: uv-x86_64-unknown-linux-gnu.tar.gz
+          checksum: bf65ac1a0af10f92c522d91ac096c7c0a39657647b155577e7836c2cbbb4526c
+          require-checksums: true
+          python-version: '3.14'
+          enable-cache: true
+      - name: Install locked dependencies and run Ruff
+        run: |
+          uv sync --locked
+          uv run --locked ruff check .
+      - name: Check Django, migration drift, and run real PostgreSQL tests
+        env:
+          POSTGRES_PORT: ${{ job.services.postgres.ports['5432'] }}
+        run: |
+          uv run --locked python manage.py check
+          uv run --locked python manage.py makemigrations --check --dry-run --noinput
+          uv run --locked python manage.py collectstatic --noinput
+          uv run --locked pytest
+
+  compose:
+    name: Compose / seeded HTTP end-to-end
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+      - name: Validate, build, start, seed, smoke, and tear down
+        env:
+          SMOKE_LOG: ${{ runner.temp }}/compose-smoke.log
+        run: exec python3 scripts/ci/compose_smoke.py --log "$SMOKE_LOG"
+      - name: Keep Compose diagnostics
+        if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: compose-smoke-logs
+          path: ${{ runner.temp }}/compose-smoke.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+  docs:
+    name: Docs / links and Mermaid
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+      - name: Validate local links and render every Mermaid block
+        run: python3 scripts/ci/check_docs.py --render "$RUNNER_TEMP/roc-documentation"
+      - name: Upload rendered documentation diagrams
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: documentation-diagrams
+          path: ${{ runner.temp }}/roc-documentation/
+          if-no-files-found: error
+          retention-days: 14

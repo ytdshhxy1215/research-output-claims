@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block title %}访问受限 · 学术成果归集{% endblock %}
+{% block content %}
+<section class="access-panel" aria-labelledby="access-title">
+  <p class="eyebrow">访问受限 · 403</p>
+  {% if reports_denial and not workspace.can_view_reports %}
+    <h1 id="access-title">当前账号没有成果统计权限</h1>
+    <p>统计、趋势和导出只对有授权的院系审核员和校级复核员开放。教师仍可在认领工作台查看自己的推荐、申请和审核进度。</p>
+  {% elif reports_denial %}
+    <h1 id="access-title">这项统计操作超出当前授权范围</h1>
+    <p>院系审核员只能查看获授权院系的统计。冻结校级快照等操作需要校级复核权限。</p>
+  {% else %}
+    <h1 id="access-title">当前账号不能执行此操作</h1>
+    <p>请返回自己的工作台，或联系管理员核对角色与访问范围。</p>
+  {% endif %}
+  <div class="action-row">
+    {% if reports_denial and workspace.can_view_reports %}
+      <a class="button" href="{% url 'reports:index' %}">返回我的统计范围</a>
+    {% elif workspace.can_view_claims %}
+      <a class="button" href="{% url 'claims:index' %}">{% if workspace.researcher_id %}返回认领工作台{% else %}返回审核工作台{% endif %}</a>
+    {% elif workspace.can_view_sync %}
+      <a class="button" href="{% url 'sync_operations' %}">返回同步运行</a>
+    {% else %}
+      <a class="button" href="{% url 'home' %}">返回首页</a>
+    {% endif %}
+    {% if user.is_authenticated %}
+      <form method="post" action="{% url 'logout' %}">
+        {% csrf_token %}<input type="hidden" name="next" value="{% url 'login' %}">
+        <button type="submit" class="quiet">退出并切换账号</button>
+      </form>
+    {% else %}
+      <a class="button quiet" href="{% url 'login' %}">登录</a>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
