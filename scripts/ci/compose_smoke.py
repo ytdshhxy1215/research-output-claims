@@ -3,6 +3,7 @@
 import argparse
 import contextlib
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -11,11 +12,72 @@ from tempfile import TemporaryDirectory
 from urllib.parse import urlsplit
 from uuid import uuid4
 
-from http_smoke import exercise
+from http_smoke import Browser, Page, exercise, require
 from package_demo import IMAGE
 
 SERVICES = {"db", "fixture-source", "migrate", "web", "worker"}
 DEMO_PASSWORD = "ci-only-synthetic-demo-password"
+
+
+def wait_for(predicate, description):
+    from time import monotonic, sleep
+
+    deadline = monotonic() + 45
+    while not predicate():
+        require(monotonic() < deadline, f"timed out waiting for {description}")
+        sleep(1)
+
+
+def exercise_ingestion(base_url, run, compose):
+    def sql(statement):
+        return run(*compose, "exec", "-T", "db", "psql", "-U", "research", "-d", "research",
+                   "-Atc", statement, capture=True).stdout.strip()
+
+    def counts():
+        return sql("SELECT (SELECT count(*) FROM catalog_work), "
+                   "(SELECT count(*) FROM catalog_contributionslot), "
+                   "(SELECT count(*) FROM sources_sourcerecordrevision), "
+                   "(SELECT count(*) FROM catalog_work WHERE granted_on IS NOT NULL)")
+
+    def completed(batch):
+        return sql(f"SELECT count(*) FROM sources_syncrun WHERE release_id='{batch}' "
+                   "AND status='succeeded'") == "2"
+
+    wait_for(lambda: completed("batch-1"), "both batch-1 streams")
+    require(counts() == "2|3|2|0", "unexpected batch-1 data")
+    publish = (
+        "from urllib.request import Request,urlopen; "
+        "r=Request('http://fixture-source:8081/__fixture/release',"
+        "b'{\"release_id\":\"batch-2\"}',{'Content-Type':'application/json'}); "
+        "urlopen(r,timeout=5).read()"
+    )
+    run(*compose, "exec", "-T", "worker", "python", "-c", publish)
+    wait_for(lambda: completed("batch-2"), "both batch-2 streams")
+    expected = "3|4|5|1"
+    require(counts() == expected, "unexpected batch-2 data or patent grant was not merged")
+    run_id = int(sql("SELECT r.id FROM sources_syncrun r JOIN sources_sourcescope s "
+                     "ON s.id=r.scope_id WHERE r.release_id='batch-2' AND s.stream='works'"))
+    operator = Browser(base_url)
+    operator.login("source-ops", DEMO_PASSWORD)
+    detail = f"/operations/sync/{run_id}/"
+    body = operator.get(detail)
+    token = re.search(r'name="token" value="(\d+)"', body)
+    require(token is not None, "sync replay form lacks token")
+    fields = {"token": token[1], "reason": "CI synthetic replay verification"}
+    replay = f"{detail}replay/"
+    action_page = Page(body)
+    require(bool(action_page.csrf),
+            "sync replay form lacks CSRF token")
+    _, headers = operator.request(replay, fields={**fields, "csrfmiddlewaretoken": action_page.csrf},
+                                  expected=302)
+    require(headers.get("Location") == detail, "replay did not return to sync detail")
+    wait_for(lambda: sql(f"SELECT status || '|' || attempts FROM sources_syncrun WHERE id={run_id}")
+             == "succeeded|2", "replay completion")
+    operator.request(replay, fields={**fields, "csrfmiddlewaretoken": Page(operator.get(detail)).csrf},
+                     expected=409)
+    require(counts() == expected and "CI synthetic replay verification" in operator.get(detail),
+            "replay changed data or failed to record the audit reason")
+    print("HTTP batch-2, patent grant, audited replay, and stale request checks passed.", flush=True)
 
 
 def smoke(directory, image, log):
@@ -87,6 +149,9 @@ def smoke(directory, image, log):
             if urlsplit(base_url).hostname != "127.0.0.1" or not urlsplit(base_url).port:
                 raise RuntimeError(f"expected an isolated IPv4 loopback port, got {address!r}")
             exercise(base_url, DEMO_PASSWORD)
+            exercise_ingestion(base_url, run, compose)
+            web_log = run(*compose, "logs", "--no-color", "web", capture=True).stdout
+            require("Control server error" not in web_log, "Gunicorn control service error")
             if not service_state("worker").startswith("running "):
                 raise RuntimeError("worker is no longer running")
         finally:

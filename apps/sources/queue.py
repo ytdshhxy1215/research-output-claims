@@ -3,16 +3,21 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
+from django.core.exceptions import PermissionDenied
 from django.db import connection, transaction
 from django.db.models import OuterRef, Q, Subquery
 
+from apps.people.access import SYNC_VIEW_PERMISSION
+
 from .connector import IngestionError
-from .models import SourceScope, SyncRun, SyncRunAttempt
+from .models import SourceScope, SyncReplay, SyncRun, SyncRunAttempt
 from .normalization import ordered_events, persist_event
 
 SOURCE = "fixture"
 Status = SyncRun.Status
 Outcome = SyncRunAttempt.Outcome
+REPLAY_PERMISSION = "sources.request_syncreplay"
+REPLAYABLE = (Status.RETRY, Status.BLOCKED, Status.SUCCEEDED)
 
 
 class LostLease(Exception):
@@ -259,7 +264,12 @@ def fail(checkpoint, error):
 
 
 @transaction.atomic(durable=True)
-def requeue(run_id):
+def requeue(run_id, *, actor, reason, expected_token):
+    if not actor.has_perm(REPLAY_PERMISSION) or not actor.has_perm(SYNC_VIEW_PERMISSION):
+        raise PermissionDenied
+    reason = reason.strip()
+    if not reason or len(reason) > 500:
+        raise ReplayError("请填写 1–500 字的重放原因。")
     try:
         scope_id = SyncRun.objects.values_list("scope_id", flat=True).get(
             pk=run_id, scope__source=SOURCE
@@ -268,10 +278,16 @@ def requeue(run_id):
         raise ReplayError(f"fixture run {run_id} does not exist") from exc
     scope = SourceScope.objects.select_for_update().get(pk=scope_id)
     run = scope.runs.select_for_update().get(pk=run_id)
-    if run.status not in (Status.RETRY, Status.BLOCKED, Status.SUCCEEDED):
-        raise ReplayError("only retrying, blocked or succeeded runs can be replayed")
+    if (run.fencing_token != expected_token or
+            run.replays.filter(token=expected_token).exists()):
+        raise ReplayError("运行状态已更新，请刷新后再试。")
+    if run.status not in REPLAYABLE:
+        raise ReplayError("仅可重放等待重试、已阻塞或已成功的运行。")
     if scope.runs.exclude(pk=run_id).exclude(status=Status.SUCCEEDED).exists():
-        raise ReplayError("finish the open run for this scope before replaying a historical run")
+        raise ReplayError("该数据流已有未完成运行，请先处理该运行。")
+    SyncReplay.objects.create(
+        run=run, actor=actor, reason=reason, previous_status=run.status, token=expected_token,
+    )
     if run.status == Status.SUCCEEDED:
         run.cursor = run.last_event_id = ""
         run.last_event_at = run.completed_at = None

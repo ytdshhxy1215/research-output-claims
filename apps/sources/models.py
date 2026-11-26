@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 
+from django.conf import settings
 from django.db import models
 
 
@@ -125,4 +126,20 @@ class SourceRecordRevision(models.Model):
             models.UniqueConstraint(
                 fields=("record", "content_hash"), name="sources_revision_content"
             ),
+        ]
+
+
+class SyncReplay(models.Model):
+    run = models.ForeignKey(SyncRun, on_delete=models.PROTECT, related_name="replays")
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    reason = models.CharField(max_length=500)
+    previous_status = models.CharField(max_length=12, choices=SyncRun.Status.choices)
+    requested_at = models.DateTimeField(auto_now_add=True)
+    token = models.PositiveBigIntegerField()
+
+    class Meta:
+        permissions = [("request_syncreplay", "Can request a sync replay")]
+        ordering = ("-requested_at", "-pk")
+        constraints = [
+            models.UniqueConstraint(fields=("run", "token"), name="sources_unique_replay_token"),
         ]

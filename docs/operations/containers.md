@@ -57,3 +57,18 @@ docker compose -f compose.yaml ps --all
 `compose.yaml` 本身没有构建定义。升级后检查迁移退出码、Web 就绪及 Worker 日志；不要假设升级没有停机。发布镜像必须包含同版本的应用代码、`fixture_source`、容器探针和已收集的静态文件。
 
 Web 始终绑定宿主机回环地址。如果在同一宿主机上用 TLS 反向代理提供访问，设置 `DJANGO_DEBUG=0`、`DJANGO_HTTPS=1`，在 `DJANGO_ALLOWED_HOSTS` 中列出正式域名且保留 `127.0.0.1`（容器内探针使用），并设置 `DJANGO_CSRF_TRUSTED_ORIGINS` 为对应的 `https://` 源。代理应传递正确的 `Host`，并覆盖而非信任外部请求中的 `X-Forwarded-Proto`；不要在未配置 TLS 代理时开启此模式。
+
+## PostgreSQL 备份与恢复演练
+
+在 Compose 项目目录执行，以当前环境的数据库账号替换 `research`。把归档复制到受控存储并记录应用镜像摘要。下面恢复到新的 `research_restore_check` 数据库，可在隔离测试项目演练。
+
+```shell
+docker compose exec -T db pg_dump -U research -d research -Fc -f /tmp/research.dump
+docker compose cp db:/tmp/research.dump ./research.dump
+docker compose cp ./research.dump db:/tmp/research-restore.dump
+docker compose exec -T db createdb -U research research_restore_check
+docker compose exec -T db pg_restore -U research -d research_restore_check --exit-on-error /tmp/research-restore.dump
+docker compose exec -T db psql -U research -d research_restore_check -c "SELECT COUNT(*) FROM django_migrations;"
+```
+
+恢复前后核对核心表数量、最新同步窗口以及快照记录，再以匹配的应用镜像做就绪和登录检查。备份文件含帐号与审计数据，放在仓库之外或受忽略的本地目录。清理时只移除自己创建的演练库和临时归档。

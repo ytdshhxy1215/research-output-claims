@@ -57,5 +57,8 @@ class Command(BaseCommand):
         operator_group.permissions.add(
             Permission.objects.get(content_type__app_label=app_label, codename=codename),
         )
+        operator_group.permissions.add(
+            Permission.objects.get(content_type__app_label="sources", codename="request_syncreplay"),
+        )
         demo_user("source-ops").groups.add(operator_group)
         self.stdout.write(self.style.SUCCESS("Synthetic teachers and reviewers are ready."))

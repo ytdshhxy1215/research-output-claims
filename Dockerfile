@@ -24,4 +24,4 @@ USER app:app
 # collectstatic needs Django settings but no database or deploy-time secrets.
 RUN DJANGO_SECRET_KEY=collectstatic-build-only python manage.py collectstatic --noinput
 EXPOSE 8000 8081
-CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000"]
+CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--no-control-socket"]

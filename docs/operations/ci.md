@@ -101,3 +101,5 @@ flowchart LR
 python scripts/ci/check_docs.py
 python scripts/ci/check_docs.py --render build-diagrams
 ```
+
+Compose 验收还会推进第二批，核对专利合并和授权日是否补齐，再由运维账号走网页重放。脚本校验重放原因留痕、旧表单返回 409、入库数量保持一致，以及冷启动日志没有 Gunicorn 控制套接字错误。

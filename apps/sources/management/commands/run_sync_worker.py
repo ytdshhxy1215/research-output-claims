@@ -2,11 +2,14 @@ import logging
 from time import sleep
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.core.exceptions import PermissionDenied
 from django.core.management.base import BaseCommand, CommandError
 from django.db import OperationalError, close_old_connections, transaction
 
 from apps.sources import queue
 from apps.sources.connector import FixtureConnector, IngestionError
+from apps.sources.models import SyncRun
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +73,24 @@ class Command(BaseCommand):
             help="Requeue a run and drain ready work once (implies --once).",
         )
 
+        parser.add_argument("--actor", help="Authorized account to record for CLI replay.")
+        parser.add_argument("--reason", help="Reason to record for CLI replay.")
+
+    def _replay(self, run_id, username, reason):
+        if not username or not reason or not reason.strip():
+            raise CommandError("--replay requires --actor and --reason")
+        users = get_user_model()
+        try:
+            actor = users.objects.get(username=username, is_active=True)
+            token = SyncRun.objects.values_list("fencing_token", flat=True).get(pk=run_id)
+            queue.requeue(run_id, actor=actor, reason=reason, expected_token=token)
+        except (users.DoesNotExist, PermissionDenied) as exc:
+            raise CommandError("the named actor does not have replay permission") from exc
+        except SyncRun.DoesNotExist as exc:
+            raise CommandError("unknown sync run") from exc
+        except queue.ReplayError as exc:
+            raise CommandError(str(exc)) from exc
+
     def handle(self, *args, **options):
         timeout = options["request_timeout"]
         lease_seconds = options["lease_seconds"]
@@ -82,10 +103,7 @@ class Command(BaseCommand):
         if not 0 < timeout < lease_seconds or poll_interval <= 0:
             raise CommandError("require 0 < request timeout < lease and a positive poll interval")
         if replay is not None:
-            try:
-                queue.requeue(replay)
-            except queue.ReplayError as exc:
-                raise CommandError(str(exc)) from exc
+            self._replay(replay, options["actor"], options["reason"])
         connector = FixtureConnector(settings.FIXTURE_SOURCE_URL, timeout=timeout)
         try:
             while True:

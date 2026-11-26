@@ -50,6 +50,8 @@ classDiagram
 erDiagram
     SOURCE_SCOPE ||--o{ SYNC_RUN : schedules
     SYNC_RUN ||--o{ SYNC_RUN_ATTEMPT : records
+    SYNC_RUN ||--o{ SYNC_REPLAY : requeues
+    USER ||--o{ SYNC_REPLAY : requests
     SOURCE_SCOPE ||--o{ SOURCE_RECORD : identifies
     SOURCE_RECORD ||--o{ SOURCE_REVISION : retains
     SYNC_RUN ||--o{ SOURCE_REVISION : fetched

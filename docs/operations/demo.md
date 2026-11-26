@@ -19,7 +19,10 @@
 
 ```shell
 docker compose exec -T worker python -c 'import json,urllib.request as u; r=u.Request("http://fixture-source:8081/__fixture/release",json.dumps(dict(release_id="batch-2")).encode(),{"Content-Type":"application/json"}); print(u.urlopen(r,timeout=5).read().decode())'
-docker compose exec -T worker python manage.py run_sync_worker --replay <运行编号>
 ```
 
-运行编号可从数据库的 `sources_syncrun` 中查询；也可用测试 `tests/test_ingestion.py` 复现限流、回滚检查点和过期 Worker 场景。批次发布状态只保存在模拟源进程，重启模拟源若需继续 `batch-2`，重新发布即可；已经提交的数据库水位与记录独立保留。停止本地服务用 `docker compose down`，保留 PG 数据卷。
+如需复现故障，可用测试 `tests/test_ingestion.py` 复现限流、回滚检查点和过期 Worker 场景。批次发布状态只保存在模拟源进程，重启模拟源若需继续 `batch-2`，重新发布即可；已经提交的数据库水位与记录独立保留。停止本地服务用 `docker compose down`，保留 PG 数据卷。
+
+以 `source-ops` 打开「同步运行 → 详情」可查看失败分类与尝试。填写原因并选择「排队重放」，刷新详情核对新尝试和上次申请记录。升级已有合成演示环境后运行一次 `seed_demo` 为运维组补授重放权限。
+
+容器维护人员也可通过 `python manage.py run_sync_worker --replay <运行编号> --actor <有重放权限的账号> --reason "重放原因"` 执行。命令记录指定账号和原因，宿主机操作者身份由主机访问记录负责。

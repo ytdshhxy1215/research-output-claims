@@ -46,6 +46,15 @@ def feed(settings):
 
 
 def poll(**options):
+    if "replay" in options:
+        from django.contrib.auth import get_user_model
+        from django.contrib.auth.models import Permission
+
+        actor, _ = get_user_model().objects.get_or_create(username="ingestion-replay-test")
+        actor.user_permissions.add(*Permission.objects.filter(
+            content_type__app_label="sources", codename__in=("view_syncrun", "request_syncreplay"),
+        ))
+        options.update(actor=actor.username, reason="验证重放幂等性")
     call_command("run_sync_worker", once=True, stdout=StringIO(), **options)
 
 

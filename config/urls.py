@@ -3,6 +3,7 @@ from django.urls import include, path
 from django.views.decorators.cache import never_cache
 from django.views.generic import TemplateView
 
+from apps.sources import views as source_views
 from config import views
 
 urlpatterns = [
@@ -13,6 +14,8 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("claims/", include("apps.claims.urls")),
     path("operations/sync/", views.sync_operations, name="sync_operations"),
+    path("operations/sync/<int:run_id>/", source_views.detail, name="sync_detail"),
+    path("operations/sync/<int:run_id>/replay/", source_views.replay, name="sync_replay"),
     path("reports/", include("apps.reports.urls")),
 ]
 

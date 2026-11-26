@@ -25,6 +25,14 @@
 </article>
 <section aria-labelledby="case-events">
   <h2 id="case-events">{% if is_owner %}处理进度{% else %}审计记录{% endif %}</h2>
+  <form method="get" action="{% url 'claims:detail' case.pk %}#case-events">
+    <label for="event-kind">事件类型</label>
+    <select id="event-kind" name="event">
+      <option value="">全部可见事件</option>
+      {% for kind, label in event_kinds %}<option value="{{ kind }}"{% if event_kind == kind %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <button class="quiet" type="submit">筛选</button>
+  </form>
   <ol>
   {% for event in events %}
     <li>
@@ -36,6 +44,7 @@
       {% endif %}
       {% if not is_owner or event.kind != 'submitted' %}<p>{{ event.reason|linebreaksbr }}</p>{% endif %}
     </li>
+  {% empty %}<li>当前条件下没有可见事件。</li>
   {% endfor %}
   </ol>
 </section>

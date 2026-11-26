@@ -69,6 +69,7 @@
 {% if is_reviewer %}
 <section aria-labelledby="review-queue" data-claim-section="review">
   <h2 id="review-queue">审核与复核台</h2>
+  {% if overdue_count %}<p class="notice">初审提醒：{{ overdue_count }} 条可处理申请已等待至少 {{ reminder_days }} 天，请优先核对。</p>{% endif %}
   <nav class="queue-filters" aria-label="审核队列范围">
     {% for key, label in review_filters %}
     <a href="{% querystring review=key queue=None %}#review-queue"{% if review == key %} aria-current="true"{% endif %}>{{ label }}</a>

@@ -1,9 +1,12 @@
+from datetime import timedelta
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_http_methods, require_POST, require_safe
@@ -12,7 +15,7 @@ from apps.catalog.models import ContributionSlot
 
 from . import discovery, forms, services
 from .models import ClaimCase, ClaimEvent
-from .policy import ACTION_STATES, Action, ClaimsAccess
+from .policy import ACTION_STATES, FIRST_REVIEW_STATES, Action, ClaimsAccess
 
 ACTION_FORMS = {
     Action.REVIEW: (forms.ReviewForm, services.review_claim, "记录初审决定"),
@@ -33,6 +36,7 @@ TEACHER_STAGES = {
     )),
 }
 REVIEW_FILTERS = {"actionable": "待我处理", "all": "全部授权记录"}
+REVIEW_REMINDER_DAYS = 7
 
 
 def _case_rows(queryset):
@@ -71,15 +75,19 @@ def index(request):
     review = review if review in REVIEW_FILTERS else "actionable"
 
     my_page = review_page = None
+    overdue_count = 0
+    overdue_cutoff = timezone.now() - timedelta(days=REVIEW_REMINDER_DAYS)
     if is_researcher:
         own_cases = access.own_cases()
         if statuses := TEACHER_STAGES[stage][1]:
             own_cases = own_cases.filter(status__in=statuses)
         my_page = Paginator(_case_rows(own_cases), 25).get_page(request.GET.get("mine"))
     if is_reviewer:
-        review_cases = (
-            access.awaiting_decisions() if review == "actionable" else access.oversight_cases()
-        )
+        actionable = access.awaiting_decisions()
+        overdue_count = actionable.filter(
+            status__in=FIRST_REVIEW_STATES, submitted_at__lte=overdue_cutoff,
+        ).count()
+        review_cases = actionable if review == "actionable" else access.oversight_cases()
         review_page = Paginator(_case_rows(review_cases), 25).get_page(request.GET.get("queue"))
 
     search_state = {key: request.GET[key] for key in ("mine", "queue") if key in request.GET}
@@ -99,6 +107,8 @@ def index(request):
         "teacher_stages": [(key, item[0]) for key, item in TEACHER_STAGES.items()],
         "review": review,
         "review_filters": REVIEW_FILTERS.items(),
+        "overdue_count": overdue_count,
+        "reminder_days": REVIEW_REMINDER_DAYS,
         "search_state": search_state.items(),
     })
 
@@ -116,11 +126,20 @@ def detail(request, case_id):
         events = events.exclude(kind__in=INTERNAL_EVENTS)
     else:
         events = events.select_related("actor", "from_department", "to_department")
+    event_kinds = [(kind, label) for kind, label in ClaimEvent.Kind.choices
+                   if not is_owner or kind not in INTERNAL_EVENTS]
+    event_kind = request.GET.get("event", "")
+    if event_kind in dict(event_kinds):
+        events = events.filter(kind=event_kind)
+    else:
+        event_kind = ""
     return render(request, "claims/detail.html", {
         "case": case,
         "status_label": case.get_status_display(),
         "is_owner": is_owner,
         "events": events,
+        "event_kinds": event_kinds,
+        "event_kind": event_kind,
         "actions": [
             action.value for action in Action
             if action in can_act and case.status in ACTION_STATES[action]
